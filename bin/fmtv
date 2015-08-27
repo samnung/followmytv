@@ -1,0 +1,47 @@
+#!/usr/bin/env ruby
+
+lib = File.expand_path('../../lib', __FILE__)
+$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
+
+require 'followmytv'
+include Followmytv::API
+
+
+RestClient.log = 'stdout'
+
+
+
+def login(username, password)
+  begin
+    form_post('login', '#UserLoginForm', {'data[User][email]' => username, 'data[User][password]' => password})
+  rescue RestClient::Found
+  end
+end
+
+
+
+
+
+
+
+puts '-------------------------- Episodes -------------------------------'
+
+ajax_call('users/episode_list')['items'].each do |item|
+  show = Show.from(item.delete('Show'))
+  episode = Episode.from(item.delete('Episode'))
+
+  p item
+end
+
+puts '-------------------------- Shows -------------------------------'
+
+ajax_get('users/show_list')['items'].each do |item|
+  show = Followmytv::Show.from(item.delete('Show'))
+
+  p show
+end
+
+
+puts '-------------------------- Shows Search -------------------------------'
+
+puts ajax_post('shows/search.json', 'data[Show][showName]' => 'Atlantis')
