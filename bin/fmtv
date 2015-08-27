@@ -26,17 +26,19 @@ end
 
 puts '-------------------------- Episodes -------------------------------'
 
-ajax_call('users/episode_list')['items'].each do |item|
-  show = Show.from(item.delete('Show'))
-  episode = Episode.from(item.delete('Episode'))
+ajax_get('users/episode_list')['items'].each do |item|
+  show = Followmytv::Show.from_json(item.delete('Show'))
+  episode = Followmytv::Episode.from_json(item.delete('Episode'))
 
-  p item
+  p show
+  p episode
+  puts ''
 end
 
 puts '-------------------------- Shows -------------------------------'
 
 ajax_get('users/show_list')['items'].each do |item|
-  show = Followmytv::Show.from(item.delete('Show'))
+  show = Followmytv::Show.from_json(item.delete('Show'))
 
   p show
 end
