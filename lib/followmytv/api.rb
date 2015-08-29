@@ -34,7 +34,32 @@ module Followmytv
       JSON.parse(perform_post(path, params, 'X-Requested-With' => 'XMLHttpRequest'))
     end
 
+    def perform_get(path, params = {}, headers = {})
+      headers[:params] = cleanup_params(params)
+      headers[:cookies] = cookies
 
+      fina_response = RestClient.get(create_url(path), headers) do |response, request, result, &block|
+        puts response.headers[:location]
+        response.return!(request, result, &block)
+      end
+
+      cookies.merge!(fina_response.cookies)
+
+      fina_response
+    end
+
+    def perform_post(path, params = {}, headers = {})
+      headers[:cookies] = cookies
+
+      response = RestClient.post(create_url(path), params, headers) do |response, request, result, &block|
+        puts response.headers[:location]
+        response.return!(request, result, &block)
+      end
+
+      cookies.merge!(response.cookies)
+
+      response
+    end
 
 
 
@@ -44,27 +69,6 @@ module Followmytv
       params.select { |key, value|
         !key.nil? && key.length > 0
       }
-    end
-
-    def perform_get(path, params = {}, headers = {})
-      headers[:params] = cleanup_params(params)
-      headers[:cookies] = cookies
-
-      response = RestClient.get(create_url(path), headers)
-
-      cookies.merge!(response.cookies)
-
-      response
-    end
-
-    def perform_post(path, params = {}, headers = {})
-      headers[:cookies] = cookies
-
-      response = RestClient.post(create_url(path), params, headers)
-
-      cookies.merge!(response.cookies)
-
-      response
     end
 
     # @param form [Nokogiri::HTML::Node]
@@ -88,7 +92,7 @@ module Followmytv
 
       form = Nokogiri::HTML(init_response).at_css(form_selector)
 
-      parse_inputs(form)
+      cleanup_params(parse_inputs(form))
     end
 
     def create_url(path)
