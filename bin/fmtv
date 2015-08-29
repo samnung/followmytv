@@ -23,27 +23,150 @@ end
 
 
 
+# puts '-------------------------- Episodes -------------------------------'
+#
+# ajax_get('users/episode_list')['items'].each do |item|
+#   show = Followmytv::Show.from_json(item.delete('Show'))
+#   episode = Followmytv::Episode.from_json(item.delete('Episode'))
+#
+#   p show
+#   p episode
+#   puts ''
+# end
+#
+# puts '-------------------------- Shows -------------------------------'
+#
+# ajax_get('users/show_list')['items'].each do |item|
+#   show = Followmytv::Show.from_json(item.delete('Show'))
+#
+#   p show
+# end
 
-puts '-------------------------- Episodes -------------------------------'
+#
+# puts '-------------------------- Shows Search -------------------------------'
+#
+# search = ajax_post('shows/search.json', 'data[Show][showName]' => 'Dark Matter')
+# shows = search[search.index { |item| item['title'] == 'Shows' }]
+# shows['data'].each do |item|
+#   p item
+# end
+#
+#
 
-ajax_get('users/episode_list')['items'].each do |item|
-  show = Followmytv::Show.from_json(item.delete('Show'))
-  episode = Followmytv::Episode.from_json(item.delete('Episode'))
 
-  p show
-  p episode
-  puts ''
+
+
+def search_shows(search_term)
+  search = ajax_post('shows/search.json', 'data[Show][showName]' => search_term)
+  shows_index = search.index { |item| item['title'] == 'Shows' }
+
+  if shows_index.nil?
+    []
+  else
+    shows = search[shows_index]
+    shows['data'].map do |info|
+      show = Followmytv::Show.new
+      show.link = info['permalink']
+      show.id = info['Show']['id']
+      show.title = info['Show']['title']
+      show.slug = info['Show']['slug']
+      show.season_count = info['Show']['season_count'].to_i
+      show
+    end
+  end
 end
 
-puts '-------------------------- Shows -------------------------------'
+# @return [Followmytv::Show]
+#
+def find_show(show_name)
+  shows = search_shows(show_name)
+  index = shows.index { |show| show.title == show_name }
 
-ajax_get('users/show_list')['items'].each do |item|
-  show = Followmytv::Show.from_json(item.delete('Show'))
+  raise "Can't find show named #{show_name}" if index.nil?
 
-  p show
+  shows[index]
+end
+
+# @param show_name [String] pretty name of the show
+# @param season_number [String|Fixnum] season number (not index, so values starting from 0)
+#
+def get_show_episodes(show_name, season_number)
+  show = find_show(show_name)
+
+  season_i = season_number.to_i
+  season_index = season_i - 1
+  if season_index >= 0 && season_index < show.season_count
+    doc = Nokogiri(perform_get(show.link + "/episodes/#{season_i}"))
+    doc.css('.item-teaser').map do |node|
+      e = Followmytv::Episode.new
+      e.link = node.at_css('.info a.title')['href']
+      e.number = node.at_css('.info .epinr').content
+      e.air_date = node.at_css('.info .airdate').content
+      e.watched = !node.at_css('.info .labels .watched').nil?
+
+      if rating_node = node.at_css('.rating')
+        e.rating = rating_node.content.to_f
+      end
+
+      if votes_node = node.at_css('.votes')
+        e.votes_count = votes_node.content.to_i
+      end
+
+      e
+    end
+  else
+    raise "Number of season #{season_i} is out of bounds of real episodes (1 ... #{show.season_count}) for show #{show_name}"
+  end
+end
+
+def mark_episode_watched(show_name, episode)
+  show = find_show(show_name)
+
+  data = /([0-9]+)x([0-9]+)/.match(episode)
+  season_number = data[1]
+  episode_number = data[2].to_i
+
+  episodes = get_show_episodes(show_name, season_number)
+  episode_index = episodes.index { |e| e.number == episode }
+  raise "Not found episode #{episode_number} in show #{show_name}" if episode_index.nil?
+
+  params = {
+      'data[BulkUpdate][action]' => 'mark_watched',
+  }
+
+  init_link = show.link + "/episodes/bulk/#{season_number}"
+  form_params = fetch_init_form(init_link, '#EpisodeBulkUpdateForm')
+  form_params.each do |key, value|
+    if key =~ /^data\[BulkUpdate\]\[Episode\]\[([0-9]+)\]\[update\]/
+        form_params[key] = "0"
+    end
+  end
+  form_params.merge!(params)
+
+  params_a = []
+  form_params.each do |key, value|
+    key = RestClient::Payload::UrlEncoded::Parser.escape(key.to_s, RestClient::Payload::UrlEncoded::Escape)
+    # value = RestClient::Payload::UrlEncoded::Parser.escape(value.to_s, RestClient::Payload::UrlEncoded::Escape)
+
+    params_a << "#{key}=#{value}"
+  end
+
+
+  updating_key = RestClient::Payload::UrlEncoded::Parser.escape("data[BulkUpdate][Episode][#{episode_index}][update]", RestClient::Payload::UrlEncoded::Escape)
+  # updating_key = "data[BulkUpdate][Episode][#{episode_index}][update]"
+  old_item = updating_key + '=0'
+  new_item = updating_key + '=1'
+
+  index = params_a.index { |item| item == old_item }
+  params_a.insert(index+1, new_item)
+
+  puts params_a
+
+  begin
+    perform_post("/episodes/bulk_update", params_a.join('&'), { 'Referer' => init_link })
+  rescue RestClient::Found
+  end
 end
 
 
-puts '-------------------------- Shows Search -------------------------------'
-
-puts ajax_post('shows/search.json', 'data[Show][showName]' => 'Atlantis')
+puts mark_episode_watched('Dark Matter', '1x08')

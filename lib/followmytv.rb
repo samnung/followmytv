@@ -5,5 +5,5 @@ module Followmytv
   require 'followmytv/episode'
   require 'followmytv/show'
 
-  require 'followmytv/api'
+  require 'followmytv/api_helper'
 end
