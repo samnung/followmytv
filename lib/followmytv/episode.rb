@@ -1,23 +1,36 @@
 
 module Followmytv
   class Episode
-    attr_reader :id
+    attr_accessor :id
 
     # @return [String]
     #
-    attr_reader :title
+    attr_accessor :title
 
     # @return [String]
     #
-    attr_reader :number
+    attr_accessor :number
 
     # @return [String]
     #
-    attr_reader :link
+    attr_accessor :link
 
     # @return [String]
     #
-    attr_reader :air_date
+    attr_accessor :air_date
+
+    # @return [TrueClass, FalseClass]
+    #
+    attr_accessor :watched
+
+
+    # @return [Float]
+    #
+    attr_accessor :rating
+
+    # @return [Fixnum]
+    #
+    attr_accessor :votes_count
 
     # @param json [Hash]
     #

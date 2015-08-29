@@ -1,17 +1,30 @@
 
 module Followmytv
   class Show
-    # @return [String]
-    #
-    attr_reader :title
 
     # @return [String]
     #
-    attr_reader :link
+    attr_accessor :id
+
+    # @return [String]
+    #
+    attr_accessor :title
+
+    # @return [String]
+    #
+    attr_accessor :slug
+
+    # @return [String]
+    #
+    attr_accessor :link
 
     # @return [Fixnum]
     #
-    attr_reader :unwatched_count
+    attr_accessor :unwatched_count
+
+    # @return [Fixnum]
+    #
+    attr_accessor :season_count
 
     # @param json [Hash]
     #
